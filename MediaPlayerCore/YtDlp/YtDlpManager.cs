@@ -1,3 +1,4 @@
+using MediaPlayerCore.Helpers;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -887,8 +888,14 @@ namespace MediaPlayerCore.YtDlp
                 await EnsureBgutilServerAsync().ConfigureAwait(false);
                 return _bgutilServerReady;
             }
+            catch (Exception ex)
+            {
+                ErrorLogger.CaptureException(ex);
+                return false;
+            }
             finally
             {
+                ErrorLogger.CaptureMessage("SENTRY PING");
                 Interlocked.Exchange(ref _youTubeSetupRunning, 0);
             }
         }
