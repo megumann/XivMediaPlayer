@@ -145,6 +145,17 @@ namespace XivMediaPlayer
 
         public bool EnableSabrProxy { get; set; } = true;
 
+        /// <summary>
+        /// Local bind address used by the VRCVideoCacher cookie export listener.
+        /// Use 127.0.0.1 for native Linux browsers, or 0.0.0.0 / a host IP for relay setups.
+        /// </summary>
+        public string CookieListenerHost { get; set; } = "127.0.0.1";
+
+        /// <summary>
+        /// Local TCP port used by the VRCVideoCacher cookie export listener.
+        /// </summary>
+        public int CookieListenerPort { get; set; } = 9696;
+
 
 
         /// <summary>Automatically upload XivMediaPlayer warnings/errors from dalamud.log to the sync server.</summary>

@@ -75,6 +75,8 @@ namespace MediaPlayerCore.YtDlp
         private TcpListener? _cookieListener;
         private Thread? _cookieListenerThread;
         private bool _isListeningForCookies;
+        private readonly string _cookieListenerHost;
+        private readonly int _cookieListenerPort;
 
         public bool EnableSabrProxy { get; set; } = true;
         private HttpListener? _sabrProxyListener;
@@ -444,20 +446,66 @@ namespace MediaPlayerCore.YtDlp
             set => _preferredMaxHeight = value;
         }
 
-        public YtDlpManager(string pluginDir, int preferredMaxHeight = 720)
+        public YtDlpManager(string pluginDir, int preferredMaxHeight = 720, string cookieListenerHost = "127.0.0.1", int cookieListenerPort = 9696)
         {
             _ytDlpPath = Path.Combine(pluginDir, "yt-dlp.exe");
             _preferredMaxHeight = preferredMaxHeight;
+            _cookieListenerHost = string.IsNullOrWhiteSpace(cookieListenerHost) ? "127.0.0.1" : cookieListenerHost;
+            _cookieListenerPort = cookieListenerPort > 0 ? cookieListenerPort : 9696;
             _cookiesPath = FindCookiesFile();
             StartCookieListener();
             Task.Run(CleanupOrphanedSabrTempDirs);
+        }
+
+        private static IPAddress ResolveBindAddress(string host)
+        {
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                return IPAddress.Loopback;
+            }
+
+            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                return IPAddress.Loopback;
+            }
+
+            if (string.Equals(host, "0.0.0.0", StringComparison.OrdinalIgnoreCase))
+            {
+                return IPAddress.Any;
+            }
+
+            try
+            {
+                return IPAddress.Parse(host);
+            }
+            catch
+            {
+                try
+                {
+                    IPAddress[] addresses = Dns.GetHostAddresses(host);
+                    foreach (var address in addresses)
+                    {
+                        if (address.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            return address;
+                        }
+                    }
+                }
+                catch
+                {
+                    // fall through to loopback
+                }
+            }
+
+            return IPAddress.Loopback;
         }
 
         private void StartCookieListener()
         {
             try
             {
-                _cookieListener = new TcpListener(IPAddress.Loopback, 9696);
+                IPAddress bindAddress = ResolveBindAddress(_cookieListenerHost);
+                _cookieListener = new TcpListener(bindAddress, _cookieListenerPort);
                 _cookieListener.Start();
 
                 _isListeningForCookies = true;

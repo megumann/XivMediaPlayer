@@ -51,34 +51,34 @@ namespace XivMediaPlayer
         private readonly IPartyList _partyList;
         private readonly IGameInteropProvider _gameInterop;
 
-        private readonly Configuration _config;
-        private readonly WindowSystem _windowSystem;
-        private readonly VideoWindow _videoWindow;
-        private readonly SettingsWindow _settingsWindow;
-        private readonly ScreenSettingsWindow _screenSettingsWindow;
+        private readonly Configuration _config = null!;
+        private readonly WindowSystem _windowSystem = null!;
+        private readonly VideoWindow _videoWindow = null!;
+        private readonly SettingsWindow _settingsWindow = null!;
+        private readonly ScreenSettingsWindow _screenSettingsWindow = null!;
         internal ScreenSettingsWindow ScreenSettingsWindow => _screenSettingsWindow;
         private readonly WatchPartyWindow _watchPartyWindow;
         internal WatchPartyWindow WatchPartyWindow => _watchPartyWindow;
         public ITextureProvider TextureProvider => _textureProvider;
-        private WorldVideoRenderer _worldRenderer;
+        private WorldVideoRenderer _worldRenderer = null!;
         internal WorldVideoRenderer WorldRenderer => _worldRenderer;
         internal string CurrentStreamer => _currentStreamer;
         internal Networking.ControllerService? ControllerService => _controllerService;
-        private DepthPreviewWindow _depthPreviewWindow;
+        private DepthPreviewWindow _depthPreviewWindow = null!;
 
         private Networking.EmulationClient? _emulationClient;
         private Networking.ControllerService? _controllerService;
 
         private string _currentMediaOwnerId = string.Empty;
         private bool _isLocalDj = false;
-        private DepthBufferCapture _depthCapture;
-        private UILayerCapture _uiCapture;
-        private Compositing.TitleTextureManager _titleTextureManager;
-        private Compositing.HistoryMenuTextureManager _historyMenuTextureManager;
+        private DepthBufferCapture _depthCapture = null!;
+        private UILayerCapture _uiCapture = null!;
+        private Compositing.TitleTextureManager _titleTextureManager = null!;
+        private Compositing.HistoryMenuTextureManager _historyMenuTextureManager = null!;
         private bool _isHistoryMenuOpen = false;
-        private Compositing.QueueMenuTextureManager _queueMenuTextureManager;
+        private Compositing.QueueMenuTextureManager _queueMenuTextureManager = null!;
         private bool _isQueueMenuOpen = false;
-        private Compositing.ImageTextureCache _imageTextureCache;
+        private Compositing.ImageTextureCache _imageTextureCache = null!;
         private readonly Compositing.PlacementManipulator _placementManipulator = new();
         private TwitchViewerSession? _twitchViewerSession;
         private readonly List<Compositing.PlacementManipulator.Pickable> _placementPickables = new();
@@ -98,10 +98,10 @@ namespace XivMediaPlayer
 
         private readonly List<WorldQuadDrawItem> _worldQuadDrawOrder = new();
 
-        private MediaManager _mediaManager;
+        private MediaManager _mediaManager = null!;
         public MediaManager MediaManager => _mediaManager;
-        private YtDlpManager _ytDlpManager;
-        private Task _ytDlpInitTask;
+        private YtDlpManager _ytDlpManager = null!;
+        private Task _ytDlpInitTask = Task.CompletedTask;
         private readonly DalamudLogMonitor _diagnosticLogMonitor = new();
         private readonly DiagnosticReportPolicy _diagnosticReportPolicy = new();
         private DiagnosticReportEligibility? _diagnosticEligibility;
@@ -149,11 +149,11 @@ namespace XivMediaPlayer
         private bool _isMuted = false;
         private bool _wasDragging3DSeek = false;
         private Random _shuffleRandom = new Random();
-        private MediaCameraObject _playerCamera;
+        private MediaCameraObject _playerCamera = null!;
         private unsafe Camera* _camera;
 
-        private string[] _streamURLs;
-        private string _lastStreamURL;
+        private string[] _streamURLs = Array.Empty<string>();
+        private string _lastStreamURL = string.Empty;
         private double? _currentMediaDurationMs;
         private string _currentStreamer = "";
         private string _currentMediaTitle = "";
@@ -179,10 +179,31 @@ namespace XivMediaPlayer
         private System.Numerics.Vector3? _prevCameraUp = null;
         private bool _refreshQueued;
 
-        public Networking.ServerClient ServerClient { get; private set; }
-        public Networking.DiscordAuthClient DiscordAuthClient { get; private set; }
+        public Networking.ServerClient ServerClient { get; private set; } = null!;
+        public Networking.DiscordAuthClient DiscordAuthClient { get; private set; } = null!;
         public Configuration Config => _config;
         public YtDlpManager YtDlpManager => _ytDlpManager;
+
+        private static string ReadClipboardTextFallback()
+        {
+            try
+            {
+                Type? clipboardType = Type.GetType("System.Windows.Forms.Clipboard, System.Windows.Forms")
+                    ?? Type.GetType("System.Windows.Forms.Clipboard, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+                if (clipboardType == null)
+                {
+                    return string.Empty;
+                }
+
+                var method = clipboardType.GetMethod("GetText", Type.EmptyTypes);
+                var result = method?.Invoke(null, null);
+                return result as string ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
         internal int TranslationRevision => _translationRevision;
         public bool HasPendingDiagnosticReports => _diagnosticLogMonitor.HasPendingReports;
         public bool IsSendingDiagnosticLogs => Interlocked.CompareExchange(ref _isSendingDiagnostics, 0, 0) != 0;
@@ -587,7 +608,7 @@ namespace XivMediaPlayer
         private static extern IntPtr GetForegroundWindow();
 
         private IntPtr _mainWindowHandle;
-        private IDisposable _cefBrowserHandle;
+        private IDisposable? _cefBrowserHandle;
         private Stopwatch _streamSetCooldown = new Stopwatch();
         private Stopwatch _screensaverTimer = new Stopwatch();
 
@@ -659,7 +680,7 @@ namespace XivMediaPlayer
             _dependencyManager = new DependencyManager(configDir, pluginDir, version, _pluginLog);
 
             // Initialize dependency update manager
-            var depUpdateManager = new DependencyUpdateManager(configDir, pluginDir, _pluginLog);
+            var depUpdateManager = new XivMediaPlayer.DependencyUpdateManager(configDir, pluginDir, _pluginLog);
             
             // Check and update dependencies on startup (in background)
             Task.Run(async () => 
@@ -703,7 +724,14 @@ namespace XivMediaPlayer
             RefreshDiagnosticReportEligibility();
 
             // Initialize yt-dlp manager
-            _ytDlpManager = new YtDlpManager(pluginDir, _config.PreferredQuality) { EnableSabrProxy = _config.EnableSabrProxy };
+            _ytDlpManager = new YtDlpManager(
+                pluginDir,
+                _config.PreferredQuality,
+                _config.CookieListenerHost,
+                _config.CookieListenerPort)
+            {
+                EnableSabrProxy = _config.EnableSabrProxy
+            };
             _ytDlpManager.OnStatusUpdate += (s, msg) =>
             {
                 _pluginLog.Info("[yt-dlp] " + msg);
@@ -1265,7 +1293,7 @@ namespace XivMediaPlayer
             _pluginLog.Info("[Media Player] Media manager initialized successfully.");
         }
 
-        private Dalamud.Game.ClientState.Objects.Types.IGameObject GetLocalPlayer()
+        private Dalamud.Game.ClientState.Objects.Types.IGameObject? GetLocalPlayer()
         {
             try
             {
@@ -2209,7 +2237,7 @@ namespace XivMediaPlayer
                         {
                             if (urlWithoutQuery.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase))
                             {
-                                playUrl = MediaPlayerCore.StreamProxy.Instance.RegisterStream(url, null);
+                                playUrl = MediaPlayerCore.StreamProxy.Instance.RegisterStream(url, null!);
                             }
                             else
                             {
@@ -2412,7 +2440,7 @@ namespace XivMediaPlayer
                             return;
                         }
                     }
-                    string title = metadata?.Title;
+                    string title = metadata?.Title ?? string.Empty;
                     if (string.IsNullOrWhiteSpace(title) || title == "Unknown") title = url;
                     string uploader = metadata?.Uploader ?? "";
 
@@ -2553,12 +2581,12 @@ namespace XivMediaPlayer
             }
         }
 
-        private void OnVideoWindowResized(object sender, EventArgs e)
+        private void OnVideoWindowResized(object? sender, EventArgs e)
         {
             ChangeStreamQuality();
         }
 
-        private void _mediaManager_OnNewMediaTriggered(object sender, EventArgs e)
+        private void _mediaManager_OnNewMediaTriggered(object? sender, EventArgs e)
         {
             EnqueueFrameworkAction(() => {
                 PrintVerbose("[Media Player] Starting Stream...");
@@ -2630,8 +2658,8 @@ namespace XivMediaPlayer
         private unsafe void ResetStreamValues(bool pushToServer = true)
         {
             _lastStreamObject = null;
-            _streamURLs = null;
-            _lastStreamURL = "";
+            _streamURLs = Array.Empty<string>();
+            _lastStreamURL = string.Empty;
             _currentMediaDurationMs = null;
             InvalidateSabrSeekCache();
             _currentStreamer = "";
@@ -2645,7 +2673,7 @@ namespace XivMediaPlayer
             _controllerService?.Dispose();
             _controllerService = null;
             _cefBrowserHandle?.Dispose();
-            _cefBrowserHandle = null;
+            _cefBrowserHandle = null!;
             StopTwitchViewerPresence();
 
             _mediaManager?.StopStream();
@@ -5398,7 +5426,8 @@ namespace XivMediaPlayer
                                         string clip = "";
                                         for (int i = 0; i < 5; i++)
                                         {
-                                            try { clip = System.Windows.Forms.Clipboard.GetText(); if (!string.IsNullOrEmpty(clip)) break; } catch { }
+                                            clip = ReadClipboardTextFallback();
+                                            if (!string.IsNullOrEmpty(clip)) break;
                                             Thread.Sleep(50);
                                         }
                                         if (!string.IsNullOrEmpty(clip))
@@ -5534,7 +5563,8 @@ namespace XivMediaPlayer
                                             string clip = "";
                                             for (int i = 0; i < 5; i++)
                                             {
-                                                try { clip = System.Windows.Forms.Clipboard.GetText(); if (!string.IsNullOrEmpty(clip)) break; } catch { }
+                                                clip = ReadClipboardTextFallback();
+                                                if (!string.IsNullOrEmpty(clip)) break;
                                                 Thread.Sleep(50);
                                             }
                                             if (!string.IsNullOrEmpty(clip))
@@ -6833,10 +6863,10 @@ namespace XivMediaPlayer
 
             // Tear down
             _mediaManager?.Dispose();
-            _mediaManager = null;
+            _mediaManager = null!;
             _cefBrowserHandle?.Dispose();
-            _cefBrowserHandle = null;
-            _videoWindow.MediaManager = null;
+            _cefBrowserHandle = null!;
+            _videoWindow.MediaManager = null!;
 
             // Reinitialize
             try
@@ -6884,7 +6914,7 @@ namespace XivMediaPlayer
             try
             {
                 // Clean up HidSharp's hidden window to prevent RegisterClass crashes on plugin reload
-                IntPtr hwnd = FindWindow("HidSharpDeviceMonitor", null);
+                IntPtr hwnd = FindWindow("HidSharpDeviceMonitor", null!);
                 if (hwnd != IntPtr.Zero)
                 {
                     // Send WM_CLOSE (0x0010) to let the background thread destroy it and exit cleanly
@@ -6892,7 +6922,7 @@ namespace XivMediaPlayer
                 }
                 
                 IntPtr hInst = GetModuleHandle("HidSharp.dll");
-                if (hInst == IntPtr.Zero) hInst = GetModuleHandle(null);
+                if (hInst == IntPtr.Zero) hInst = GetModuleHandle(null!);
                 UnregisterClass("HidSharpDeviceMonitor", hInst);
             }
             catch { }
