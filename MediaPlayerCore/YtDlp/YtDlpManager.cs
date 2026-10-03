@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using XIVMarketBoard.ErrorLogger;
 using XivMediaPlayer;
 
 namespace MediaPlayerCore.YtDlp
@@ -839,8 +840,14 @@ namespace MediaPlayerCore.YtDlp
                 await EnsureBgutilServerAsync().ConfigureAwait(false);
                 return _bgutilServerReady;
             }
+            catch (Exception ex)
+            {
+                ErrorLogger.CaptureException(ex);
+                return false;
+            }
             finally
             {
+                ErrorLogger.CaptureMessage("SENTRY PING");
                 Interlocked.Exchange(ref _youTubeSetupRunning, 0);
             }
         }

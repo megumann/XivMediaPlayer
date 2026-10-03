@@ -16,7 +16,7 @@ namespace XivMediaPlayer.Windows
         private DateTime _lastDiagnosticEligibilityRefreshUtc = DateTime.MinValue;
 
         public SettingsWindow(Plugin plugin, Action onVolumeFix = null) :
-          base("Media Player Settings", ImGuiWindowFlags.NoCollapse, false)
+          base("Media Player Settings (DEV)", ImGuiWindowFlags.NoCollapse, false)
         {
             _plugin = plugin;
             _onVolumeFix = onVolumeFix;
