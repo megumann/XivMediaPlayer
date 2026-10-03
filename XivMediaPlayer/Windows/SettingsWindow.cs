@@ -28,7 +28,7 @@ namespace XivMediaPlayer.Windows
 
         public override void Draw()
         {
-            WindowName = Localize("Media Player Settings");
+            WindowName = Localize("Media Player Settings (DEV)");
             _ = _plugin.TranslationRevision;
 
             if (ImGui.BeginTabBar("MediaPlayerSettingsTabs"))
